@@ -24,6 +24,11 @@
  */
 
 #include <Arduino.h>
+
+#define DEFINE_STRING_ID_HERE
+#include <StringId.h>
+
+
 #include <MainConfig.h>
 #include <PinMapping.h>
 #include <Blink.hpp>
@@ -40,7 +45,15 @@
 #include <ComModules/DumpCOM.hpp>
 #include <ComModules/LittleFsCOM.hpp>
 
+#include <Adafruit_NeoMatrix.h>
+#define max
 #include <WS2812FX.h>
+#undef max 
+#include <myInfo.hpp>
+
+
+
+
 
 
 
@@ -63,16 +76,22 @@
 volatile bool setupStartsecondCore = false; // false:  first core0 setup .. then core1 setup      || true: core0 and core1 setup in parallel
 volatile bool waitForsecondCore = true;     // false:  core0 starts with loop directly after setup|| true: core0 waits for core1 to finish setup first, then start loop
 
+
+
 BlinkingLED blink;
 Config config("/Curie-Bottle.json");
-#ifdef digitalReadFast
-  PinDirectFast * pPinKey;
-#else 
-  PinDirect * pPinKey;
-#endif
+PinDirect * pPinKey;
 Button * pButton;
 
-WS2812FX stripe;
+WS2812FX stripe = WS2812FX(32, PIN_WS2812B, NEO_GRB + NEO_KHZ800);
+MyInfo myInfo;
+
+enum   {
+    LED_MODE_OFF=0,
+    LED_MODE_ON
+};
+uint32_t status;
+String msgConfig;
 
 
 /*****************************************************************
@@ -94,6 +113,23 @@ void testDebug()
 {
 
 }
+
+void LedReset()
+{
+    stripe.setMode(config.getInt(CFG_DEFAULT_MODE));
+    stripe.setColor(config.getInt(CFG_DEFAULT_COLOR));
+    stripe.setBrightness(config.getInt(CFG_DEFAULT_BRIGHTNESS));
+    stripe.setSpeed(config.getInt(CFG_DEFAULT_SPEED));
+}
+
+void LedOff()
+{
+    stripe.setMode(FX_MODE_STATIC);
+    stripe.setSpeed(0);
+    stripe.setColor(BLACK);
+    stripe.setBrightness(0);
+}
+ 
 
 
 
@@ -117,29 +153,37 @@ void setup()
     debug.begin(&Serial1);
 
     LOG(F("setup 0:  start random"));
-    randomSeed(analogRead(PIN_AD_CURRENT));
+    randomSeed(analogRead(PIN_ADC0));
 
     LOG(F("setup 0: load config"));
     config.begin(); // Initialize the configuration file system
     if (config.load())
     {
         LOG(F("setup 0: config loaded"));
+        msgConfig = F("setup 0: config loaded");
     }  else   {
         LOG(F("setup 0: failed to load config, creating default"));
+        msgConfig = F("setup 0: failed to load config, creating default");
         setDefaultConfig();
         config.save();
     }
 
-    stripe  = WS2812FX(config.getInt(CFG_LED_COUNT, PIN_LED, NEO_GRB + NEO_KHZ800);
-
-    blink.off();
     
     LOG(F("setup 0: setup first core done, start setup of second core"));
     setupStartsecondCore = true;
     while (waitForsecondCore == true)   {  }
-    blink.setup(BLINK_SEQ_MAIN);
+
+    LOG(F("setup 0: init WS2812FX"));
+    // start with rainbow cycle
+    stripe.init();
+    stripe.setBrightness(100);
+    stripe.setSpeed(20);
+    stripe.setMode(FX_MODE_RAINBOW_CYCLE);
+    stripe.start();
 
     LOG(F("setup 0: start loop of first core"));
+    blink.setup(BLINK_SEQ_MAIN);
+    status = LED_MODE_ON;
 }
 
 void setup1()
@@ -151,9 +195,9 @@ void setup1()
     LOG(F("setup 1: setup second core starts ...."));
 
     LOG(F("setup 1: Buttons"));
-    pPinKey = new PinDirect(PIN_BUTTON0);
-    pButton = new Button(*pPinKey);
     
+    pPinKey = new PinDirect(PIN_BUTTON0,true,false);
+    pButton = new Button(*pPinKey);
 
 
     LOG(F("setup 1: COM interface"));
@@ -176,40 +220,48 @@ void setup1()
 void loop()
 {
     uint32_t now = millis();
+    
+    // loops
     blink.loop(now);
-    sampler.loop(now);
+    pButton->loop(now);
 
-    // evaluate signal chains 
-    pTemperatureSignalChain->update(now);
-    pCurrentSignalChain->update(now);
-    pVoltagesSignalChain->update(now);
+    switch (status) {
+        case LED_MODE_OFF:
+            if (pButton->wasSinglePressed()) {
+                LOG(F("single pressed .. switch on and reset"));
+                status = LED_MODE_ON;
+                LedReset();
+            }
+            break;
 
-    //testLog.sampleLoop(now);    // sample part of test Log
-
-    // raise duty
-    if(pButtons[2]->wasSinglePressed()){
-        uint32_t value = pPwmOut->getLastValue();
-        value += PWM_OUT_SETP;
-        if (value > PWM_OUT_MAX) value = 0;
-
-        pPwmOut->setNewValue(value);
-        
-        PWM_Instance->setPWM(PIN_SW_PWM,PWM_FREQUENCY,value);
-        //analogWrite(PIN_SW_PWM,pwmOutput);
-        display.backlightOn();
+        case LED_MODE_ON:
+            if (pButton->isHoldDown() && pButton->getHoldDownTime() > 1000) {
+                LOG(F("LONG hold .. switch off"));
+                status = LED_MODE_OFF;
+                LedOff();
+            }
+            if (pButton->wasDoublePressed()) {
+                LOG(F("double pressed .. change LED mode"));
+                uint32_t mode = stripe.getMode();
+                mode++;
+                if (mode > 55) {
+                    mode = 0;
+                }
+                stripe.setMode(mode);
+            }
+            break;
     }
 }
 
 void loop1()
 {
-  uint32_t now = millis();
+    uint32_t now = millis();
 
-  for(int i=0;i<3;i++){
-    pButtons[i]->loop(now);
-  }
-
-  display.loop(now);
-  com.loop(now);
+    stripe.service();
+ 
+    // getter functions of  WS2812FX should be thread safe
+    com.loop(now); 
   
-  //testLog.outputLoop(now);  // output part of test Log
+
 }
+

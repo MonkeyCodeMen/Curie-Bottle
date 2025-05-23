@@ -1,8 +1,6 @@
 #pragma once
 #include <Arduino.h>
-#include <SignalDef.h>
 #include <PinMapping.h>
-#include <AdcDef.h>
 
 
 
@@ -18,8 +16,8 @@
 // my VS-Code terminal needs some time after download to open
 // so the setup will wait for this time before executing setup, so that all 
 // debug logs are visibile in the terminal
-#define WAIT_FOR_TERMINAL           2000  //[ms]    
-#define BLINK_SEQ_MAIN              {250, 500, 250, 500, 500, 1000}
+#define WAIT_FOR_TERMINAL           0  //[ms]    
+#define BLINK_SEQ_MAIN              {500, 500}
 
 
 

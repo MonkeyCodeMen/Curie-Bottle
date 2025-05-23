@@ -29,6 +29,10 @@
 #include <Arduino.h>
 #include <Mutex.hpp>
 
+#ifndef DEBUG_LOG_BUFFER_SIZE
+#define DEBUG_LOG_BUFFER_SIZE 64
+#endif
+
 
 class Debug
 {
@@ -103,18 +107,30 @@ public:
 
     String hexDump(uint8_t * p,uint8_t length,const char * sep=" ", const char * prefix="");
 
+    // Add log to buffer
+    void logToBuffer(const String& msg);
+
+    // Dump buffer content
+    String dumpLogBuffer(uint32_t now_msec, uint32_t userID) const;
+
 
 private:
-    static void _out(char * text)                                                       {_pOut->print(text);}
-    static void _out(const char * text)                                                 {_pOut->print(text);}
-    static void _out(String  text)                                                      {_pOut->print(text);}
-    static void _out(const __FlashStringHelper * text)                                  {_pOut->print(text);}
+    static void _out(char * text)                                                       {_pOut->print(text);    _outString += String(text);   }
+    static void _out(const char * text)                                                 {_pOut->print(text);    _outString += String(text);   }
+    static void _out(String  text)                                                      {_pOut->print(text);    _outString += text;           }
+    static void _out(const __FlashStringHelper * text)                                  {_pOut->print(text);    _outString += String(text);   }
     static void _outEnd();
     static bool _check();
+
+    static String _outString;
 
     volatile static bool    _initDone;
     static HardwareSerial * _pOut;
     static Mutex            _mutex;
+
+    String _logBuffer[DEBUG_LOG_BUFFER_SIZE];
+    uint16_t _logBufferHead = 0;
+    uint16_t _logBufferCount = 0;
 
 };
 

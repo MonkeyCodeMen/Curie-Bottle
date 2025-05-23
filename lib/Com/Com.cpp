@@ -29,8 +29,8 @@
 #include <Debug.hpp>
 
 // include Com Modules here and register them on begin
-#include "ComModules/DisplayCOM.hpp"
 #include "ComModules/LittleFsCOM.hpp"
+#include "ComModules/DumpCOM.hpp"
 
 
 Com com;

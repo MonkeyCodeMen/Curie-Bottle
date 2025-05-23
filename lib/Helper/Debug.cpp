@@ -36,6 +36,7 @@
 volatile bool   Debug::_initDone = false;
 HardwareSerial *Debug::_pOut = NULL;
 Mutex           Debug::_mutex;
+String Debug::_outString = "";
 
 Debug debug;
 Dumper& dumper = Dumper::getInstance();
@@ -45,6 +46,7 @@ SystemInfo systemInfo;
 
 Debug::Debug()
 {
+    
 }
 
 void Debug::begin(HardwareSerial * pOut,uint32_t baud){
@@ -54,14 +56,32 @@ void Debug::begin(HardwareSerial * pOut,uint32_t baud){
     _pOut=pOut;
     _pOut->begin(baud);
     _mutex.free();
+    dumper.registerDumpFunction("DebugLog", [this](uint32_t now_msec, uint32_t userID) { return this->dumpLogBuffer(now_msec, userID); });
     _initDone = true;
   }
 }
 
+String Debug::dumpLogBuffer(uint32_t now_msec, uint32_t userID) const {
+    String out = "Debug Log Buffer Dump at " + String(now_msec) + " ms:\n";
+    uint16_t idx = (_logBufferHead + DEBUG_LOG_BUFFER_SIZE - _logBufferCount) % DEBUG_LOG_BUFFER_SIZE;
+    for (uint16_t i = 0; i < _logBufferCount; ++i) {
+        out += _logBuffer[idx] + "\n";
+        idx = (idx + 1) % DEBUG_LOG_BUFFER_SIZE;
+    }
+    return out;
+}
 
 bool Debug::_check(){
     if (_initDone == false){ return false;    }
     return true;
+}
+
+void Debug::logToBuffer(const String& msg) {
+    _logBuffer[_logBufferHead] = msg;
+    _logBufferHead = (_logBufferHead + 1) % DEBUG_LOG_BUFFER_SIZE;
+    if (_logBufferCount < DEBUG_LOG_BUFFER_SIZE) {
+        _logBufferCount++;
+    }
 }
 
 void Debug::log(const char * text){
@@ -147,6 +167,8 @@ void Debug::assertTrue(bool cond ,const char * file,int line,const char * text){
 
 void Debug::_outEnd(){
     // at the moment only simply dump to terminal
+    debug.logToBuffer(_outString);
+    _outString = "";
     _pOut->println();
     _pOut->flush();
 }
@@ -188,74 +210,84 @@ void Debug::logMem(const char * file,int line,const char * text){
 
 
 void Debug::dump(const char * pName,void *pIn, uint8_t length){
-  String out = debug.hexDump((uint8_t*)pIn,length);
-  _pOut->print(pName);
-  _pOut->print(F(" : "));
-  _pOut->println(out);
+    _mutex.lock();        
+    String out = debug.hexDump((uint8_t*)pIn,length);
+    _out(pName);
+    _out(F(" : "));
+    _out(out);
+    _outEnd();
+    _mutex.free();
 }
 
 void Debug::dump(const char * pName,uint32_t value){
-  _pOut->print(pName);
-  _pOut->print(F(" : "));
-  _pOut->print(value);  
-  _pOut->println();
+    _mutex.lock();
+    _out(pName);
+    _out(F(" : "));
+    _out(String(value));  
+    _outEnd();
+    _mutex.free();
 }
 
 
 void Debug::dump(const char * pName,uint32_t value, int base){
-  _pOut->print(pName);
-  _pOut->print(F(" : "));
-  _pOut->print(value,base);  
-  _pOut->println();
+    _mutex.lock();
+    _out(pName);
+    _out(F(" : "));
+    _out(String(value,base));  
+    _outEnd();
+    _mutex.free();
 }
 
 void Debug::dump(const char * pName,const char * value){
-  _pOut->print(pName);
-  _pOut->print(F(" : "));
-  _pOut->print(value);  
-  _pOut->println();
+    _mutex.lock();
+    _out(pName);
+    _out(F(" : "));
+    _out(String(value));  
+    _outEnd();
+    _mutex.free();
 }
 
 
 String Debug::hexDump(uint8_t  * p,uint8_t length,const char * sep,const char * prefix){
-  const char * transTable = "0123456789ABCDEF";
-  bool first = true;
-  uint8_t value,index;
+    const char * transTable = "0123456789ABCDEF";
+    bool first = true;
+    uint8_t value,index;
 
-  String out = "";
-  
-  for(uint8_t i=0;i < length;i++){
-    // interspace (not at first byte)
-    if (first == true){
-      first = false;
-    } else {
-      out+=sep;
-    }
-
-    // get byte and add prefix
-    value = *p;
-    out+=prefix;
+    String out = "";
     
-    // bits 7..4
-    index = (value >> 4) & 0x0F;
-    out+=transTable[index];
+    for(uint8_t i=0;i < length;i++){
+        // interspace (not at first byte)
+        if (first == true){
+        first = false;
+        } else {
+        out+=sep;
+        }
 
-    // bits 3..0
-    index = value & 0x0F;
-    out+=transTable[index];
-    p++;
-  }
-  return out;
+        // get byte and add prefix
+        value = *p;
+        out+=prefix;
+        
+        // bits 7..4
+        index = (value >> 4) & 0x0F;
+        out+=transTable[index];
+
+        // bits 3..0
+        index = value & 0x0F;
+        out+=transTable[index];
+        p++;
+    }
+    return out;
 }
 
 void Debug::stop(const char * file,int line,const char * message){
-  _pOut->print(F("### critical error - system stop ### file: <"));
-  _pOut->print(file);
-  _pOut->print(F("> in line :"));
-  _pOut->print(line);
-  _pOut->print(F(" :: "));
-  _pOut->print(message);
-  while (1){ };
+    // buffer makes no sense here (endless loop)
+    _pOut->print(F("### critical error - system stop ### file: <"));
+    _pOut->print(file);
+    _pOut->print(F("> in line :"));
+    _pOut->print(line);
+    _pOut->print(F(" :: "));
+    _pOut->print(message);
+    while (1){ };
 }
 
 

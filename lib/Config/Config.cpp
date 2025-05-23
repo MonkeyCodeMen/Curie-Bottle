@@ -1,6 +1,7 @@
 #include "config.hpp"
 #include <Debug.hpp>
 #include <ArduinoJson.h>
+#include <helper.h>
 
 Config::Config(String filename, String objectName) : Dump(objectName), _filename(filename) {}
 
@@ -59,20 +60,6 @@ String Config::dump(uint32_t now_ms, uint32_t userID) const {
     return output;
 }
 
-// Getter for string values
-String Config::getString(const String& key) {
-    return _configData[key] | ""; // Returns an empty string if the key does not exist
-}
-
-bool Config::getString(const String& key, String& value) {
-    if (_configData[key].is<String>()) {
-        value = _configData[key].as<String>();
-        return true;
-    }
-    LOG("Key not found: " + key);
-    return false;
-}
-
 // Getter for string values with default
 bool Config::getStringOrDefault(const String& key, const String& defaultValue, String& value) {
     if (_configData[key].is<String>()) {
@@ -86,80 +73,97 @@ bool Config::getStringOrDefault(const String& key, const String& defaultValue, S
     return false;
 }
 
-// Getter for boolean values
-bool Config::getBool(const String& key) {
-    return _configData[key] | false; // Returns false if the key does not exist
-}
-
-bool Config::getBool(const String& key, bool& value) {
-    if (_configData[key].is<bool>()) {
-        value = _configData[key].as<bool>();
-        return true;
-    }
-    LOG("Key not found: " + key);
-    return false;
-}
 
 // Getter for boolean values with default
 bool Config::getBoolOrDefault(const String& key, bool defaultValue, bool& value) {
+        // If the value is a boolean, return it directly
     if (_configData[key].is<bool>()) {
         value = _configData[key].as<bool>();
         return true;
     }
-    // Add the key with the default value to the JSON document
-    setBool(key, defaultValue);
-    value = defaultValue;
-    LOG("Key not found: " + key + ", setting default value: " + String(defaultValue));
-    return false;
-}
-
-// Getter for integer values
-int Config::getInt(const String& key) {
-    return _configData[key] | 0; // Returns 0 if the key does not exist
-}
-
-bool Config::getInt(const String& key, int& value) {
+    // If the value is an integer (e.g., 0 or 1)
     if (_configData[key].is<int>()) {
-        value = _configData[key].as<int>();
+        value = _configData[key].as<int>() != 0;
         return true;
     }
+    // If the value is a string, try to interpret it as a boolean
+    if (_configData[key].is<const char*>()) {
+        String val = _configData[key].as<const char*>();
+        val.toLowerCase();
+        if      (val == "true"  || val == "1" || val == "yes" || val == "on" ) value = true;
+        else if (val == "false" || val == "0" || val == "no"  || val == "off") value = false;
+        else {
+            // Fallback: return false if the string cannot be interpreted
+            value = defaultValue;
+            setBool(key, defaultValue);
+            LOG("Key not found: " + key);
+            return false;
+        }
+        return true;
+    }
+    if (_configData[key].is<String>()) {
+        String val = _configData[key].as<String>();
+        val.toLowerCase();
+        if      (val == "true"  || val == "1" || val == "yes" || val == "on" ) value = true;
+        else if (val == "false" || val == "0" || val == "no"  || val == "off") value = false;
+        else {
+            // Fallback: return false if the string cannot be interpreted
+            value = defaultValue;
+            setBool(key, defaultValue);
+            LOG("Key not found: " + key);
+            return false;
+        }
+        return true;
+    }
+    // Fallback: return false if the key does not exist or cannot be interpreted
+    value = defaultValue;
+    setBool(key, defaultValue);
     LOG("Key not found: " + key);
     return false;
 }
+
 
 // Getter for integer values with default
 bool Config::getIntOrDefault(const String& key, int defaultValue, int& value) {
+    // If the value is an integer, return it directly
     if (_configData[key].is<int>()) {
         value = _configData[key].as<int>();
+        return true;    
+    }
+    // If the value is a string (const char*), try to convert it to int
+    if (_configData[key].is<const char*>()) {
+        value = atoi(_configData[key].as<const char*>());
         return true;
     }
-    // Add the key with the default value to the JSON document
-    setInt(key, defaultValue);
+    // If the value is an Arduino String, try to convert it to int
+    if (_configData[key].is<String>()) {
+        value = _configData[key].as<String>().toInt();
+        return true;
+    }
+    // Fallback: return 0 if the key does not exist or cannot be interpreted as int
     value = defaultValue;
-    LOG("Key not found: " + key + ", setting default value: " + String(defaultValue));
-    return false;
-}
-
-// Getter for hexadecimal values
-int Config::getHex(const String& key) {
-    return strtol(_configData[key] | "0", nullptr, 16); // Returns 0 if the key does not exist
-}
-
-bool Config::getHex(const String& key, int& value) {
-    if (_configData[key].is<const char *>()) {
-        value = strtol(_configData[key].as<const char*>(), nullptr, 16);
-        return true;
-    }
+    setInt(key, defaultValue);
     LOG("Key not found: " + key);
     return false;
 }
 
+
 // Getter for hexadecimal values with default
 bool Config::getHexOrDefault(const String& key, int defaultValue, int& value) {
-    if (_configData[key].is<const char *>()) {
-        value = strtol(_configData[key].as<const char*>(), nullptr, 16);
+    String temp;
+    // If the value is a string (const char*), try to convert it to int
+    if (_configData[key].is<const char*>()) {
+        temp = _configData[key].as<const char*>();
+        value = convertStrToInt(temp);
         return true;
     }
+    // If the value is an Arduino String, try to convert it to int
+    if (_configData[key].is<String>()) {
+        temp = _configData[key].as<String>();
+        value = convertStrToInt(temp);
+        return true;
+    }
+
     // Add the key with the default value to the JSON document
     setHex(key, defaultValue);
     value = defaultValue;
@@ -222,80 +226,12 @@ bool Config::mergeFromString(const String& jsonString) {
     return true;
 }
 
+
 String Config::getKeyFromID(uint32_t id) const {
     const char* key = StringID::getInstance().getString(id);
-    ASSERT(key != nullptr, "Invalid ID: Key not found");
+    if (key == nullptr) {
+        LOG(F("Invalid ID: Key not found"));
+        return String(CONFIG_DEFAULT_KEY);
+    }
     return String(key);
-}
-
-// Getter for string values by ID
-String Config::getString(uint32_t id) {
-    return getString(getKeyFromID(id));
-}
-
-bool Config::getString(uint32_t id, String& value) {
-    return getString(getKeyFromID(id), value);
-}
-
-bool Config::getStringOrDefault(uint32_t id, const String& defaultValue, String& value) {
-    return getStringOrDefault(getKeyFromID(id), defaultValue, value);
-}
-
-// Getter for boolean values by ID
-bool Config::getBool(uint32_t id) {
-    return getBool(getKeyFromID(id));
-}
-
-bool Config::getBool(uint32_t id, bool& value) {
-    return getBool(getKeyFromID(id), value);
-}
-
-bool Config::getBoolOrDefault(uint32_t id, bool defaultValue, bool& value) {
-    return getBoolOrDefault(getKeyFromID(id), defaultValue, value);
-}
-
-// Getter for integer values by ID
-int Config::getInt(uint32_t id) {
-    return getInt(getKeyFromID(id));
-}
-
-bool Config::getInt(uint32_t id, int& value) {
-    return getInt(getKeyFromID(id), value);
-}
-
-bool Config::getIntOrDefault(uint32_t id, int defaultValue, int& value) {
-    return getIntOrDefault(getKeyFromID(id), defaultValue, value);
-}
-
-// Getter for hexadecimal values by ID
-int Config::getHex(uint32_t id) {
-    return getHex(getKeyFromID(id));
-}
-
-bool Config::getHex(uint32_t id, int& value) {
-    return getHex(getKeyFromID(id), value);
-}
-
-bool Config::getHexOrDefault(uint32_t id, int defaultValue, int& value) {
-    return getHexOrDefault(getKeyFromID(id), defaultValue, value);
-}
-
-// Setter for string values by ID
-void Config::setString(uint32_t id, const String& value) {
-    setString(getKeyFromID(id), value);
-}
-
-// Setter for boolean values by ID
-void Config::setBool(uint32_t id, bool value) {
-    setBool(getKeyFromID(id), value);
-}
-
-// Setter for integer values by ID
-void Config::setInt(uint32_t id, int value) {
-    setInt(getKeyFromID(id), value);
-}
-
-// Setter for hexadecimal values by ID
-void Config::setHex(uint32_t id, int value) {
-    setHex(getKeyFromID(id), value);
 }

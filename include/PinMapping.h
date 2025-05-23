@@ -43,7 +43,7 @@ PIN | Arduino       |   Raspberry PI PICO                       | Application
 28  |---------------|------ GND --------------------------------|------ GND -----------
 29  | D22 :         | GP22 : SPI0_SCK   :           : UART1_CTS | 
 30  |---------------|------ RUN --------------------------------|------ RUN -----------
-31  | A0  :WIRE1_SDA| GP26 : SPI1_SCK   : I2C0_SDA  : UART1_CTS | 
+31  | A0  :WIRE1_SDA| GP26 : SPI1_SCK   : I2C0_SDA  : UART1_CTS |       A0
 32  | A1  :WIRE1_SCL| GP27 : SPI1_TX    : I2C0_SCL  : UART1_RTS | 
 33  |---------------|------ AGND -------------------------------|------ AGND ----------
 34  | A2  :         | GP28 : SPI1_SCK   : I2C0_SDA  : UART1_CTS | 
@@ -66,6 +66,11 @@ PIN | Arduino       |   Raspberry PI PICO                       | Application
 ////////////////////////////////////////
 // WS2812B
 #define PIN_WS2812B         12
+
+
+////////////////////////////////////////
+// ADC / Random
+#define PIN_ADC0           31
 
 
 
