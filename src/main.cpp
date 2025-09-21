@@ -1,4 +1,3 @@
-
 /*
  * MIT License
  *
@@ -83,7 +82,7 @@ Config config("/Curie-Bottle.json");
 PinDirect * pPinKey;
 Button * pButton;
 
-WS2812FX stripe = WS2812FX(32, PIN_WS2812B, NEO_GRB + NEO_KHZ800);
+WS2812FX *  pStripe;
 MyInfo myInfo;
 
 enum   {
@@ -116,18 +115,18 @@ void testDebug()
 
 void LedReset()
 {
-    stripe.setMode(config.getInt(CFG_DEFAULT_MODE));
-    stripe.setColor(config.getInt(CFG_DEFAULT_COLOR));
-    stripe.setBrightness(config.getInt(CFG_DEFAULT_BRIGHTNESS));
-    stripe.setSpeed(config.getInt(CFG_DEFAULT_SPEED));
+    pStripe->setMode(config.getInt(CFG_DEFAULT_MODE));
+    pStripe->setColor(config.getInt(CFG_DEFAULT_COLOR));
+    pStripe->setBrightness(config.getInt(CFG_DEFAULT_BRIGHTNESS));
+    pStripe->setSpeed(config.getInt(CFG_DEFAULT_SPEED));
 }
 
 void LedOff()
 {
-    stripe.setMode(FX_MODE_STATIC);
-    stripe.setSpeed(0);
-    stripe.setColor(BLACK);
-    stripe.setBrightness(0);
+    pStripe->setMode(FX_MODE_STATIC);
+    pStripe->setSpeed(0);
+    pStripe->setColor(BLACK);
+    pStripe->setBrightness(0);
 }
  
 
@@ -168,6 +167,9 @@ void setup()
         config.save();
     }
 
+    LOG(F("setup 0: init LED stripe"));
+    pStripe = new WS2812FX(config.getInt(CFG_LED_COUNT), PIN_WS2812B, NEO_GRB + NEO_KHZ800);
+
     
     LOG(F("setup 0: setup first core done, start setup of second core"));
     setupStartsecondCore = true;
@@ -175,11 +177,11 @@ void setup()
 
     LOG(F("setup 0: init WS2812FX"));
     // start with rainbow cycle
-    stripe.init();
-    stripe.setBrightness(100);
-    stripe.setSpeed(20);
-    stripe.setMode(FX_MODE_RAINBOW_CYCLE);
-    stripe.start();
+    pStripe->init();
+    pStripe->setBrightness(100);
+    pStripe->setSpeed(20);
+    pStripe->setMode(FX_MODE_RAINBOW_CYCLE);
+    pStripe->start();
 
     LOG(F("setup 0: start loop of first core"));
     blink.setup(BLINK_SEQ_MAIN);
@@ -242,12 +244,12 @@ void loop()
             }
             if (pButton->wasDoublePressed()) {
                 LOG(F("double pressed .. change LED mode"));
-                uint32_t mode = stripe.getMode();
+                uint32_t mode = pStripe->getMode();
                 mode++;
                 if (mode > 55) {
                     mode = 0;
                 }
-                stripe.setMode(mode);
+                pStripe->setMode(mode);
             }
             break;
     }
@@ -257,11 +259,9 @@ void loop1()
 {
     uint32_t now = millis();
 
-    stripe.service();
+    pStripe->service();
  
     // getter functions of  WS2812FX should be thread safe
     com.loop(now); 
-  
-
 }
 
