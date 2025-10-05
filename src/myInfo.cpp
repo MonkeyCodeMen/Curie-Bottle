@@ -16,7 +16,7 @@ String MyInfo::dump(uint32_t now_ms, uint32_t userID) const    {
             result += "  Status: " + String(status) + "\n";
             result += "\n";
             result += "  LED stripe is running: " + String(pStripe->isRunning()) + "\n";
-            result += "stripe color " + String(pStripe->getColor()) + "\n";
+            result += "stripe color 0x" + String(pStripe->getColor(),HEX) + "\n";
             uint8_t mode = pStripe->getMode();
             result += "stripe mode " + String(mode) + "  [" + String(pStripe->getModeName(mode)) + "] \n";
             result += "stripe speed " + String(pStripe->getSpeed()) + "\n";
@@ -26,8 +26,8 @@ String MyInfo::dump(uint32_t now_ms, uint32_t userID) const    {
             result += "config getter results:\n";
             result += "  mode: " + String(config.getInt(CFG_DEFAULT_MODE)) + "\n";
             result += "  brightness: " + String(config.getInt(CFG_DEFAULT_BRIGHTNESS)) + "\n";
-            result += "  speed: " + String(config.getInt(CFG_DEFAULT_SPEED)) + "\n";
-            result += "  color: " + String(config.getInt(CFG_DEFAULT_COLOR)) + "\n";
+            result += "  speed: " + String(config.getHex(CFG_DEFAULT_SPEED)) + "\n";
+            result += "  color: 0x" + String(config.getInt(CFG_DEFAULT_COLOR)) + "\n";
             result += "  led count: " + String(config.getInt(CFG_LED_COUNT)) + "\n";
             result += "  checksum: " + String(config.getInt(CFG_CHECKSUM)) + "\n";
             result += "  config ID's: " + String(CFG_DEFAULT_MODE) + " : " + String(CFG_DEFAULT_BRIGHTNESS) + " : ";

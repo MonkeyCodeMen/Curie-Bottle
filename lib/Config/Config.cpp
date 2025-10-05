@@ -149,7 +149,7 @@ bool Config::getIntOrDefault(const String& key, int defaultValue, int& value) {
 
 
 // Getter for hexadecimal values with default
-bool Config::getHexOrDefault(const String& key, int defaultValue, int& value) {
+bool Config::getHexOrDefault(const String& key, int defaultValue, uint32_t& value) {
     String temp;
     // If the value is a string (const char*), try to convert it to int
     if (_configData[key].is<const char*>()) {

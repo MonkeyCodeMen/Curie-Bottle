@@ -116,7 +116,7 @@ void testDebug()
 void LedReset()
 {
     pStripe->setMode(config.getInt(CFG_DEFAULT_MODE));
-    pStripe->setColor(config.getInt(CFG_DEFAULT_COLOR));
+    pStripe->setColor(config.getHex(CFG_DEFAULT_COLOR));
     pStripe->setBrightness(config.getInt(CFG_DEFAULT_BRIGHTNESS));
     pStripe->setSpeed(config.getInt(CFG_DEFAULT_SPEED));
 }
@@ -226,7 +226,10 @@ void loop()
     // loops
     blink.loop(now);
     pButton->loop(now);
+    pStripe->service();
+    com.loop(now); 
 
+    // button handling
     switch (status) {
         case LED_MODE_OFF:
             if (pButton->wasSinglePressed()) {
@@ -259,9 +262,6 @@ void loop1()
 {
     uint32_t now = millis();
 
-    pStripe->service();
- 
-    // getter functions of  WS2812FX should be thread safe
-    com.loop(now); 
+
 }
 

@@ -136,12 +136,12 @@ class Config : public Dump{
         inline bool getIntOrDefault(uint32_t id, int defaultValue, int& value) {  return getIntOrDefault(getKeyFromID(id), defaultValue, value);}
 
         // Getter for hexadecimal values
-        bool getHexOrDefault(const String& key, int defaultValue, int& value);
-        inline int getHex(const String& key)                    { int value; getHexOrDefault(key, CONFIG_DEFAULT_HEX_VALUE, value); return value;}
-        inline bool getHex(const String& key, int& value)       { return getHexOrDefault(key, CONFIG_DEFAULT_HEX_VALUE, value); }
-        inline int getHex(uint32_t id)                          { return getHex(getKeyFromID(id)); }      
-        inline bool getHex(uint32_t id, int& value)             { return getHexOrDefault(getKeyFromID(id), 0, value);}
-        inline bool getHexOrDefault(uint32_t id, int defaultValue, int& value) { return getHexOrDefault(getKeyFromID(id), defaultValue, value);}
+        bool getHexOrDefault(const String& key, int defaultValue, uint32_t& value);
+        inline uint32_t getHex(const String& key)                    { uint32_t value; getHexOrDefault(key, CONFIG_DEFAULT_HEX_VALUE, value); return value;}
+        inline bool getHex(const String& key, uint32_t& value)       { return getHexOrDefault(key, CONFIG_DEFAULT_HEX_VALUE, value); }
+        inline uint32_t getHex(uint32_t id)                          { return getHex(getKeyFromID(id)); }      
+        inline bool getHex(uint32_t id, uint32_t& value)             { return getHexOrDefault(getKeyFromID(id), 0, value);}
+        inline bool getHexOrDefault(uint32_t id, int defaultValue, uint32_t& value) { return getHexOrDefault(getKeyFromID(id), defaultValue, value);}
 
         // Setter for values
         void setString(const String& key, const String& value);
