@@ -240,7 +240,7 @@ void loop()
             break;
 
         case LED_MODE_ON:
-            if (pButton->isHoldDown() && pButton->getHoldDownTime() > 1000) {
+            if (pButton->wasSinglePressed()) {
                 LOG(F("LONG hold .. switch off"));
                 status = LED_MODE_OFF;
                 LedOff();
