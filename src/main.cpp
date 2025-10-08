@@ -183,7 +183,24 @@ void setup()
     pStripe->setMode(FX_MODE_RAINBOW_CYCLE);
     pStripe->start();
 
+
+
+    LOG(F("setup 0: Buttons"));
+    
+    pPinKey = new PinDirect(PIN_BUTTON0,true,false);
+    pButton = new Button(*pPinKey);
+
+
+    LOG(F("setup 0: COM interface"));
+    com.begin(&Serial, 115200, SERIAL_8N1,"Pico Battery Balancer V1.0 ready");
+    // register available modules for this project
+    com.addModule(new LittleFsCOM());
+    com.addModule(new ComModuleDump());
+    LOG(F("setup 0: setup first core done .. wait for 2nd core to finish setup ..."));
+    while(waitForsecondCore == true)   {  }
+
     LOG(F("setup 0: start loop of first core"));
+
     blink.setup(BLINK_SEQ_MAIN);
     status = LED_MODE_ON;
 }
@@ -196,19 +213,6 @@ void setup1()
 
     LOG(F("setup 1: setup second core starts ...."));
 
-    LOG(F("setup 1: Buttons"));
-    
-    pPinKey = new PinDirect(PIN_BUTTON0,true,false);
-    pButton = new Button(*pPinKey);
-
-
-    LOG(F("setup 1: COM interface"));
-    com.begin(&Serial, 115200, SERIAL_8N1,"Pico Battery Balancer V1.0 ready");
-    // register available modules for this project
-    com.addModule(new LittleFsCOM());
-    com.addModule(new ComModuleDump());
-
-    LOG(F("setup 1: setup second core done"));
     waitForsecondCore = false;
     LOG(F("setup 1: start loop of second core"));
 }
