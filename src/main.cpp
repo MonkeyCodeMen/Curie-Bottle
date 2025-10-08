@@ -72,10 +72,6 @@
  ******************************************************************
  */
 
-volatile bool setupStartsecondCore = false; // false:  first core0 setup .. then core1 setup      || true: core0 and core1 setup in parallel
-volatile bool waitForsecondCore = true;     // false:  core0 starts with loop directly after setup|| true: core0 waits for core1 to finish setup first, then start loop
-
-
 
 BlinkingLED blink;
 Config config("/Curie-Bottle.json");
@@ -123,10 +119,13 @@ void LedReset()
 
 void LedOff()
 {
-    pStripe->setMode(FX_MODE_STATIC);
-    pStripe->setSpeed(0);
-    pStripe->setColor(BLACK);
-    pStripe->setBrightness(0);
+    //pStripe->setSpeed(0);
+    //pStripe->setBrightness(config.getInt(CFG_DEFAULT_BRIGHTNESS));
+    for (int i = 0; i < config.getInt(CFG_LED_COUNT); i++) {
+        pStripe->setPixelColor(i, 0, 0, 0);
+    }
+    pStripe->setPixelColor(2, config.getHex(CFG_ON_SIGN));
+    pStripe->show();
 }
  
 
@@ -151,71 +150,56 @@ void setup()
     Serial1.println(" start DEBUG module ");
     debug.begin(&Serial1);
 
-    LOG(F("setup 0:  start random"));
+    LOG(F("setup:  start random"));
     randomSeed(analogRead(PIN_ADC0));
 
-    LOG(F("setup 0: load config"));
+    LOG(F("setup: load config"));
     config.begin(); // Initialize the configuration file system
     if (config.load())
     {
-        LOG(F("setup 0: config loaded"));
-        msgConfig = F("setup 0: config loaded");
+        LOG(F("setup: config loaded"));
+        msgConfig = F("setup: config loaded");
     }  else   {
-        LOG(F("setup 0: failed to load config, creating default"));
-        msgConfig = F("setup 0: failed to load config, creating default");
+        LOG(F("setup: failed to load config, creating default"));
+        msgConfig = F("setup: failed to load config, creating default");
         setDefaultConfig();
         config.save();
     }
 
-    LOG(F("setup 0: init LED stripe"));
+    LOG(F("setup: init LED stripe"));
     pStripe = new WS2812FX(config.getInt(CFG_LED_COUNT), PIN_WS2812B, NEO_GRB + NEO_KHZ800);
 
     
-    LOG(F("setup 0: setup first core done, start setup of second core"));
-    setupStartsecondCore = true;
-    while (waitForsecondCore == true)   {  }
-
-    LOG(F("setup 0: init WS2812FX"));
+    LOG(F("setup: init WS2812FX"));
     // start with rainbow cycle
     pStripe->init();
-    pStripe->setBrightness(100);
-    pStripe->setSpeed(20);
-    pStripe->setMode(FX_MODE_RAINBOW_CYCLE);
     pStripe->start();
+    pStripe->setColor(config.getHex(CFG_DEFAULT_COLOR));
+    pStripe->setBrightness(config.getInt(CFG_DEFAULT_BRIGHTNESS));
+    //pStripe->setSpeed(config.getInt(CFG_DEFAULT_SPEED));
+    pStripe->setMode(FX_MODE_RAINBOW_CYCLE);
+    pStripe->show();
 
 
-
-    LOG(F("setup 0: Buttons"));
+    LOG(F("setup: Buttons"));
     
     pPinKey = new PinDirect(PIN_BUTTON0,true,false);
     pButton = new Button(*pPinKey);
 
 
-    LOG(F("setup 0: COM interface"));
+    LOG(F("setup: COM interface"));
     com.begin(&Serial, 115200, SERIAL_8N1,"Pico Battery Balancer V1.0 ready");
     // register available modules for this project
     com.addModule(new LittleFsCOM());
     com.addModule(new ComModuleDump());
-    LOG(F("setup 0: setup first core done .. wait for 2nd core to finish setup ..."));
-    while(waitForsecondCore == true)   {  }
 
-    LOG(F("setup 0: start loop of first core"));
+    LOG(F("setup done ...  start loop "));
 
     blink.setup(BLINK_SEQ_MAIN);
     status = LED_MODE_ON;
 }
 
-void setup1()
-{
-    while (setupStartsecondCore == false) { }
-    // all of this could be done in setup(0) too 
-    // this modus will be handled later in loop1 .. so I do the init in setup1
 
-    LOG(F("setup 1: setup second core starts ...."));
-
-    waitForsecondCore = false;
-    LOG(F("setup 1: start loop of second core"));
-}
 
 /*****************************************************************
  *
@@ -230,7 +214,6 @@ void loop()
     // loops
     blink.loop(now);
     pButton->loop(now);
-    pStripe->service();
     com.loop(now); 
 
     // button handling
@@ -244,8 +227,9 @@ void loop()
             break;
 
         case LED_MODE_ON:
+            pStripe->service();
             if (pButton->wasSinglePressed()) {
-                LOG(F("LONG hold .. switch off"));
+                LOG(F("single pressed .. switch off"));
                 status = LED_MODE_OFF;
                 LedOff();
             }
@@ -262,10 +246,4 @@ void loop()
     }
 }
 
-void loop1()
-{
-    uint32_t now = millis();
-
-
-}
 
